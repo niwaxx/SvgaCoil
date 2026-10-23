@@ -1,0 +1,4 @@
+jdk:
+  - openjdk17
+install:
+  - ./gradlew :svga-core:publishToMavenLocal :coil-svga:publishToMavenLocal -x test
