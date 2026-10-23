@@ -41,9 +41,8 @@ SvgaCoil/
 
 ## 🚀 快速接入
 
-### 1. 引入依赖
+### 1. 添加 JitPack 仓库
 
-#### 方式 A：通过 JitPack 远程依赖（推荐）
 在项目根目录 `settings.gradle.kts` 中添加 JitPack 仓库：
 ```kotlin
 dependencyResolutionManagement {
@@ -54,37 +53,57 @@ dependencyResolutionManagement {
     }
 }
 ```
-在业务模块的 `build.gradle.kts` 中一行引入（自动传递依赖 `:svga-core` 与 `coil`）：
+
+### 2. 按项目类型引入依赖
+
+`:coil-svga` 与 `:svga-core` **底层完全不依赖 Jetpack Compose**，你可以根据自己的项目形态按需引入，不会带入任何多余的 Compose 依赖包：
+
+#### 场景 A：纯传统 Android View 项目（XML / Activity / Fragment / RecyclerView，无 Compose）
+只需引入 `coil-svga`（内部已自动传递包含 `:svga-core` 与 `io.coil-kt.coil3:coil`，自带 `ImageView.load` 与 `SingletonImageLoader`）：
 ```kotlin
 dependencies {
+    // 核心库（已包含 svga-core 与 coil3 基础 View 扩展，零 Compose 依赖）
     implementation("com.github.niwaxx.SvgaCoil:coil-svga:v1.0.0")
-    // 若使用 Jetpack Compose
-    implementation("io.coil-kt.coil3:coil-compose:3.0.4")
-    // 若加载网络动效
+
+    // 若需加载 http/https 在线网络动效，添加网络支持模块
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.0.4")
 }
 ```
 
-#### 方式 B：源码子模块或本地 Maven (`mavenLocal()`) 依赖
+#### 场景 B：Jetpack Compose 项目（或 View + Compose 混合项目）
+在场景 A 的基础上额外加上 `coil-compose` 即可使用 `AsyncImage`：
 ```kotlin
 dependencies {
-    // 源码模块依赖
-    implementation(project(":coil-svga"))
-    // 或执行 ./gradlew publishToMavenLocal 后使用本地 Maven 坐标：
-    // implementation("com.github.niwaxx.SvgaCoil:coil-svga:1.0.0")
+    implementation("com.github.niwaxx.SvgaCoil:coil-svga:v1.0.0")
+    // Compose AsyncImage 支持
+    implementation("io.coil-kt.coil3:coil-compose:3.0.4")
+    // 网络动效加载支持
+    implementation("io.coil-kt.coil3:coil-network-okhttp:3.0.4")
 }
 ```
 
-### 2. 全局规范初始化（[`App.kt`](./app/src/main/java/com/example/svgacoil/App.kt)）
+#### 场景 C：不使用 Coil，仅单独使用底层 `:svga-core` 渲染引擎
+如果你项目中使用的是 Glide 或希望直接通过原生 `Drawable` 手动解析播放，可只引入 **144KB** 的 `:svga-core`（零图片加载库依赖）：
+```kotlin
+dependencies {
+    implementation("com.github.niwaxx.SvgaCoil:svga-core:v1.0.0")
+}
+```
 
-在 `Application` 中实现 Coil 3 的 `SingletonImageLoader.Factory` 接口，使全应用 Compose 与传统 View 共享同一套解码器与缓存池：
+---
 
+### 3. 全局规范初始化与自定义 `OkHttpClient`（[`App.kt`](./app/src/main/java/com/example/svgacoil/App.kt)）
+
+在 `Application` 中实现 Coil 3 的 `SingletonImageLoader.Factory` 接口，使全应用共享同一套解码器与缓存池：
+
+#### 3.1 标准初始化
 ```kotlin
 class App : Application(), SingletonImageLoader.Factory {
 
     override fun newImageLoader(context: PlatformContext): ImageLoader {
         return ImageLoader.Builder(context)
             .components {
+                add(OkHttpNetworkFetcherFactory())
                 add(SvgaDecoder.Factory())
             }
             .crossfade(true)
@@ -93,14 +112,98 @@ class App : Application(), SingletonImageLoader.Factory {
 
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
-        if (level >= TRIM_MEMORY_BACKGROUND) {
+        if (level >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND) {
             SvgaTemplateCache.clear()
         }
     }
 }
 ```
 
-### 3. Jetpack Compose 使用方式
+#### 3.2 自定义 `OkHttpClient`（超时、请求头拦截器、HTTPDNS、复用项目现有实例）
+在 Coil 3 中，如需自定义 `OkHttpClient`，只需将其传入 `OkHttpNetworkFetcherFactory(callFactory = { ... })`（若需在代码中直接构建 `OkHttpClient`，请确保 `build.gradle.kts` 中声明了 `implementation("com.squareup.okhttp3:okhttp:4.12.0")`）：
+```kotlin
+class App : Application(), SingletonImageLoader.Factory {
+
+    // 构建专属 OkHttpClient，或直接复用你项目网络层已有的 OkHttpClient 单例
+    private val customOkHttpClient: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS) // 针对 15MB+ 大体积全屏礼物适当放宽读取超时
+            .addInterceptor { chain ->
+                val request = chain.request().newBuilder()
+                    .header("User-Agent", "SvgaCoil-Android/1.0")
+                    // .header("Authorization", "Bearer xxx")
+                    .build()
+                chain.proceed(request)
+            }
+            .build()
+    }
+
+    override fun newImageLoader(context: PlatformContext): ImageLoader {
+        return ImageLoader.Builder(context)
+            .components {
+                // 传入自定义 OkHttpClient（lambda 懒加载，不阻塞 Application.onCreate 主线程）
+                add(OkHttpNetworkFetcherFactory(callFactory = { customOkHttpClient }))
+                add(SvgaDecoder.Factory())
+            }
+            .crossfade(true)
+            .build()
+    }
+}
+```
+
+---
+
+### 4. 各场景代码调用示例
+
+#### 4.1 传统 Android View (`ImageView`) 完整用法（无需 Compose）
+
+```kotlin
+import android.graphics.drawable.Animatable2
+import android.graphics.drawable.Drawable
+import coil3.load
+import coil3.request.crossfade
+import com.opensource.svga.coil.findSvgaDrawable
+import com.opensource.svga.coil.svgaDynamic
+import com.opensource.svga.coil.svgaEphemeral
+import com.opensource.svga.coil.svgaRepeatCount
+
+// 1. 一行代码直接加载至原生 ImageView（完美兼容 FIT_CENTER / CENTER_CROP / FIT_XY 等 ScaleType）
+imageView.load("file:///android_asset/angel.svga") {
+    crossfade(true)
+    svgaRepeatCount(0) // 0 = 无限循环，1 = 单次播放
+    svgaDynamic {
+        setDynamicText("VIP.99", "GuangHuan")
+    }
+}
+
+// 2. 穿透 CrossfadeDrawable / ScaleDrawable 获取底层控制器（暂停/继续/读取帧信息）
+imageView.findSvgaDrawable()?.let { svga ->
+    if (svga.isRunning) svga.stop() else svga.start()
+}
+
+// 3. 监听单次大礼物播放完毕回调 + 播后即焚（自动释放显存）
+imageView.load("https://cdn.example.com/fullscreen_gift.svga") {
+    crossfade(false)
+    svgaRepeatCount(1)
+    svgaEphemeral(autoRecycleOnEnd = true) // 不入 L1 缓存，播完自动释放位图
+    listener(
+        onSuccess = { _, _ ->
+            imageView.post {
+                imageView.findSvgaDrawable()?.registerAnimationCallback(
+                    object : Animatable2.AnimationCallback() {
+                        override fun onAnimationEnd(drawable: Drawable?) {
+                            // 动画播放结束，可在此隐藏 ImageView 或播放队列中的下一个礼物
+                        }
+                    }
+                )
+            }
+        }
+    )
+}
+```
+
+#### 4.2 Jetpack Compose (`AsyncImage`) 完整用法
 
 ```kotlin
 // 1. 基础加载（本地 assets / 网络 URL / 伪装后缀均可）
@@ -115,7 +218,7 @@ val context = LocalContext.current
 val request = remember(userTitle) {
     ImageRequest.Builder(context)
         .data("file:///android_asset/angel.svga")
-        .svgaRepeatCount(0) // 0 = 无限循环
+        .svgaRepeatCount(0)
         .svgaDynamic {
             setDynamicText(userTitle, forKey = "GuangHuan")
         }
@@ -124,21 +227,28 @@ val request = remember(userTitle) {
 AsyncImage(model = request, contentDescription = null, modifier = Modifier.size(180.dp))
 ```
 
-### 4. 传统 Android View (`ImageView`) 使用方式
+#### 4.3 仅单独使用 `:svga-core`（不通过 Coil）
 
 ```kotlin
-// 1. 一行代码直接加载至原生 ImageView（完美兼容 FIT_CENTER / CENTER_CROP / FIT_XY 等 ScaleType）
-imageView.load("file:///android_asset/angel.svga") {
-    crossfade(true)
-    svgaRepeatCount(0)
-    svgaDynamic {
-        setDynamicText("VIP.99", "GuangHuan")
+val parser = SVGAParser(context)
+lifecycleScope.launch {
+    val result = parser.decodeFromAssets(
+        assetName = "angel.svga",
+        reqWidth = 300,
+        reqHeight = 300
+    )
+    result.onSuccess { videoEntity ->
+        val drawable = SvgaAnimatableDrawable(
+            videoItem = videoEntity,
+            dynamicItem = SVGADynamicEntity().apply {
+                setDynamicText("SVGA-Core", "GuangHuan")
+            }
+        ).apply {
+            repeatCount = 0
+        }
+        imageView.setImageDrawable(drawable)
+        drawable.start()
     }
-}
-
-// 2. 穿透 CrossfadeDrawable / ScaleDrawable 获取底层动效控制器
-imageView.findSvgaDrawable()?.let { svga ->
-    if (svga.isRunning) svga.stop() else svga.start()
 }
 ```
 
