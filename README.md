@@ -33,9 +33,9 @@ SvgaCoil/
 
 | 模块 | 职责说明 |
 | :--- | :--- |
-| **[`:svga-core`](file:///Users/niwaxx/AndroidStudioProjects/SvgaCoil/svga-core)** | ZIP/ZLIB 内存流式解压、`movie.binary` Protobuf 解析、`SvgaBitmapDecoder` 动态下采样、`SVGAPathEntity` 矢量路径（含 `S`/`s` 平滑三次贝塞尔）、`SVGACanvasDrawer` 零分配画布渲染器、`SvgaAnimatableDrawable` 自驱动动画状态机。 |
-| **[`:coil-svga`](file:///Users/niwaxx/AndroidStudioProjects/SvgaCoil/coil-svga)** | 实现 Coil 3 `SvgaDecoder` 与 `Factory`、封装 `SvgaTemplateCache`（L0 骨架池 + L1 分级模板池）、提供 `svgaDynamic` / `svgaRepeatCount` / `svgaEphemeral` / `ImageView.findSvgaDrawable()` 等扩展 API。 |
-| **[`:app`](file:///Users/niwaxx/AndroidStudioProjects/SvgaCoil/app)** | 示例与压测应用，包含 [`App.kt`](file:///Users/niwaxx/AndroidStudioProjects/SvgaCoil/app/src/main/java/com/example/svgacoil/App.kt) 全局初始化、[`MainActivity.kt`](file:///Users/niwaxx/AndroidStudioProjects/SvgaCoil/app/src/main/java/com/example/svgacoil/MainActivity.kt)（Compose 演示）与 [`LegacyViewDemoActivity.kt`](file:///Users/niwaxx/AndroidStudioProjects/SvgaCoil/app/src/main/java/com/example/svgacoil/LegacyViewDemoActivity.kt)（原生 View 演示）。 |
+| **[`:svga-core`](./svga-core)** | ZIP/ZLIB 内存流式解压、`movie.binary` Protobuf 解析、`SvgaBitmapDecoder` 动态下采样、`SVGAPathEntity` 矢量路径（含 `S`/`s` 平滑三次贝塞尔）、`SVGACanvasDrawer` 零分配画布渲染器、`SvgaAnimatableDrawable` 自驱动动画状态机。 |
+| **[`:coil-svga`](./coil-svga)** | 实现 Coil 3 `SvgaDecoder` 与 `Factory`、封装 `SvgaTemplateCache`（L0 骨架池 + L1 分级模板池）、提供 `svgaDynamic` / `svgaRepeatCount` / `svgaEphemeral` / `ImageView.findSvgaDrawable()` 等扩展 API。 |
+| **[`:app`](./app)** | 示例与压测应用，包含 [`App.kt`](./app/src/main/java/com/example/svgacoil/App.kt) 全局初始化、[`MainActivity.kt`](./app/src/main/java/com/example/svgacoil/MainActivity.kt)（Compose 演示）与 [`LegacyViewDemoActivity.kt`](./app/src/main/java/com/example/svgacoil/LegacyViewDemoActivity.kt)（原生 View 演示）。 |
 
 ---
 
@@ -75,7 +75,7 @@ dependencies {
 }
 ```
 
-### 2. 全局规范初始化（[`App.kt`](file:///Users/niwaxx/AndroidStudioProjects/SvgaCoil/app/src/main/java/com/example/svgacoil/App.kt)）
+### 2. 全局规范初始化（[`App.kt`](./app/src/main/java/com/example/svgacoil/App.kt)）
 
 在 `Application` 中实现 Coil 3 的 `SingletonImageLoader.Factory` 接口，使全应用 Compose 与传统 View 共享同一套解码器与缓存池：
 
@@ -161,10 +161,10 @@ imageView.findSvgaDrawable()?.let { svga ->
 
 本仓库 `:app` 模块内置完整的交互式调试与极限压测功能：
 
-1. **Compose 主演示页（[`MainActivity.kt`](file:///Users/niwaxx/AndroidStudioProjects/SvgaCoil/app/src/main/java/com/example/svgacoil/MainActivity.kt)）**：
+1. **Compose 主演示页（[`MainActivity.kt`](./app/src/main/java/com/example/svgacoil/MainActivity.kt)）**：
    - 顶部常驻 **JVM 堆内存水位 + L1 享元模板池实时监控栏**（支持一键手动 GC 与清空缓存）。
    - 涵盖 8 个专题 Tab：`动静统一`、`📱 传统View`、`在线动效`、`动态注入`、`多尺寸复用`、`列表压测 (100项混排)`、`🎬 全屏特效轮播`、`👑 动态头像框排行榜`。
-2. **传统 View 专场页（[`LegacyViewDemoActivity.kt`](file:///Users/niwaxx/AndroidStudioProjects/SvgaCoil/app/src/main/java/com/example/svgacoil/LegacyViewDemoActivity.kt)）**：
+2. **传统 View 专场页（[`LegacyViewDemoActivity.kt`](./app/src/main/java/com/example/svgacoil/LegacyViewDemoActivity.kt)）**：
    - 纯原生 `Activity` + `LinearLayout` / `ImageView` / `ListView` 实现，包含交互式 `ScaleType` / `Animatable2` 实验室与 50 项 `ListView` + `ViewHolder` 高频滑动复用压测。
 
 ### 常用构建与测试命令
@@ -181,4 +181,4 @@ imageView.findSvgaDrawable()?.let { svga ->
 
 ## 📄 延伸阅读
 
-- [《Coil-SVGA 高性能动效 SDK 技术方案与深度架构设计》](file:///Users/niwaxx/AndroidStudioProjects/SvgaCoil/COIL_SVGA_TECHNICAL_PROPOSAL.md)
+- [《Coil-SVGA 高性能动效 SDK 技术方案与深度架构设计》](./COIL_SVGA_TECHNICAL_PROPOSAL.md)
