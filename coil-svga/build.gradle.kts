@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "com.github.niwaxx.SvgaCoil"
-version = "1.0.0"
+version = System.getenv("VERSION") ?: "1.0.1"
 
 android {
     namespace = "com.opensource.svga.coil"

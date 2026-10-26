@@ -63,7 +63,7 @@ dependencyResolutionManagement {
 ```kotlin
 dependencies {
     // 核心库（已包含 svga-core 与 coil3 基础 View 扩展，零 Compose 依赖）
-    implementation("com.github.niwaxx.SvgaCoil:coil-svga:v1.0.0")
+    implementation("com.github.niwaxx.SvgaCoil:coil-svga:v1.0.1")
 
     // 若需加载 http/https 在线网络动效，添加网络支持模块
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.0.4")
@@ -74,7 +74,7 @@ dependencies {
 在场景 A 的基础上额外加上 `coil-compose` 即可使用 `AsyncImage`：
 ```kotlin
 dependencies {
-    implementation("com.github.niwaxx.SvgaCoil:coil-svga:v1.0.0")
+    implementation("com.github.niwaxx.SvgaCoil:coil-svga:v1.0.1")
     // Compose AsyncImage 支持
     implementation("io.coil-kt.coil3:coil-compose:3.0.4")
     // 网络动效加载支持
@@ -86,7 +86,7 @@ dependencies {
 如果你项目中使用的是 Glide 或希望直接通过原生 `Drawable` 手动解析播放，可只引入 **144KB** 的 `:svga-core`（零图片加载库依赖）：
 ```kotlin
 dependencies {
-    implementation("com.github.niwaxx.SvgaCoil:svga-core:v1.0.0")
+    implementation("com.github.niwaxx.SvgaCoil:svga-core:v1.0.1")
 }
 ```
 
