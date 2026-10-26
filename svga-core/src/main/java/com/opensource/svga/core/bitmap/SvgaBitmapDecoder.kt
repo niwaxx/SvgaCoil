@@ -3,6 +3,7 @@ package com.opensource.svga.core.bitmap
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Build
+import com.opensource.svga.core.util.SvgaLogger
 
 object SvgaBitmapDecoder {
 
@@ -114,16 +115,25 @@ object SvgaBitmapDecoder {
 
         return try {
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
-        } catch (_: OutOfMemoryError) {
+        } catch (oom: OutOfMemoryError) {
+            SvgaLogger.warn(throwable = oom) {
+                "OOM decoding slice (${rawWidth}x${rawHeight}, inSampleSize=$inSampleSize). Retrying with RGB_565 & inSampleSize=${inSampleSize * 2}..."
+            }
             // 降级策略：如果 OOM，尝试翻倍采样率并降级为 RGB_565 再试一次
             try {
-                options.inSampleSize *= 2
+                options.inSampleSize = inSampleSize * 2
                 options.inPreferredConfig = Bitmap.Config.RGB_565
                 BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
-            } catch (_: Throwable) {
+            } catch (t: Throwable) {
+                SvgaLogger.error(throwable = t) {
+                    "Failed to decode slice (${rawWidth}x${rawHeight}) even after RGB_565 downgrade: ${t.message}"
+                }
                 null
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            SvgaLogger.error(throwable = e) {
+                "Exception decoding slice (${rawWidth}x${rawHeight}): ${e.message}"
+            }
             null
         }
     }

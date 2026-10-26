@@ -2,6 +2,7 @@ package com.opensource.svga.coil
 
 import androidx.collection.LruCache
 import com.opensource.svga.core.model.SVGAVideoEntity
+import com.opensource.svga.core.util.SvgaLogger
 
 /**
  * SVGA 全局享元模板缓存池（Flyweight Template Cache）。
@@ -41,7 +42,11 @@ object SvgaTemplateCache {
             newValue: SVGAVideoEntity?
         ) {
             super.entryRemoved(evicted, key, oldValue, newValue)
-            // 当被 LRU 淘汰且没有新值替换时，可选择由 GC 自然回收
+            if (evicted) {
+                SvgaLogger.debug {
+                    "SvgaTemplateCache evicted: key=$key, size=${oldValue.getAllocatedByteCount() / 1024}KB"
+                }
+            }
         }
     }
 
@@ -138,10 +143,16 @@ object SvgaTemplateCache {
         val totalBytes = entity.getAllocatedByteCount()
         if (maxCacheableBytes <= 0L || totalBytes > maxCacheableBytes) {
             // maxCacheableBytes <= 0 表示纯短暂生命周期强制不入缓存，或超过单体上限触发准入熔断拦截
+            SvgaLogger.warn {
+                "SVGA skipped L1 cache (Circuit Breaker): key=$baseKey#$tier, size=${totalBytes / 1024}KB exceeds maxCacheableBytes=${maxCacheableBytes / 1024}KB"
+            }
             return false
         }
         val tierKey = buildTierKey(baseKey, tier)
         cache.put(tierKey, entity)
+        SvgaLogger.debug {
+            "SvgaTemplateCache put: key=$tierKey, size=${totalBytes / 1024}KB, totalCacheSize=${cache.size()}KB / ${cache.maxSize()}KB"
+        }
         return true
     }
 
@@ -153,9 +164,15 @@ object SvgaTemplateCache {
     fun put(key: String, entity: SVGAVideoEntity, maxCacheableBytes: Long = maxSingleObjectCacheableBytes): Boolean {
         val totalBytes = entity.getAllocatedByteCount()
         if (maxCacheableBytes <= 0L || totalBytes > maxCacheableBytes) {
+            SvgaLogger.warn {
+                "SVGA skipped L1 cache (Circuit Breaker): key=$key, size=${totalBytes / 1024}KB exceeds maxCacheableBytes=${maxCacheableBytes / 1024}KB"
+            }
             return false
         }
         cache.put(key, entity)
+        SvgaLogger.debug {
+            "SvgaTemplateCache put: key=$key, size=${totalBytes / 1024}KB, totalCacheSize=${cache.size()}KB / ${cache.maxSize()}KB"
+        }
         return true
     }
 

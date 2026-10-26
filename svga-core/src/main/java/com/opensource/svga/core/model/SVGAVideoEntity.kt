@@ -1,6 +1,7 @@
 package com.opensource.svga.core.model
 
 import android.graphics.Bitmap
+import com.opensource.svga.core.util.SvgaLogger
 import com.opensource.svgaplayer.proto.MovieEntity
 
 class SVGAVideoEntity(
@@ -70,6 +71,8 @@ class SVGAVideoEntity(
     ) {
         if (imageMap.isNotEmpty()) return
 
+        SvgaLogger.debug { "prepareImages started: target=${targetWidth}x${targetHeight}, rawSliceCount=${_rawImages.size}" }
+
         // 计算画布相较于目标展示尺寸的缩放比率
         val canvasScale = if (videoSize.width > 0 && videoSize.height > 0 && targetWidth > 0 && targetHeight > 0) {
             maxOf(
@@ -99,6 +102,10 @@ class SVGAVideoEntity(
                 iterator.remove()
             }
         }
+
+        SvgaLogger.info {
+            "prepareImages completed: decoded ${imageMap.size} bitmaps, total allocated memory: ${getAllocatedByteCount() / 1024} KB"
+        }
     }
 
     /**
@@ -115,6 +122,7 @@ class SVGAVideoEntity(
      * "Canvas: trying to use a recycled bitmap" 崩溃。
      */
     fun clearBitmaps(recycleImmediately: Boolean = false) {
+        val count = imageMap.size
         if (recycleImmediately) {
             imageMap.values.forEach {
                 if (!it.isRecycled) {
@@ -123,5 +131,6 @@ class SVGAVideoEntity(
             }
         }
         imageMap.clear()
+        SvgaLogger.debug { "clearBitmaps (recycleImmediately=$recycleImmediately): cleared $count bitmaps" }
     }
 }

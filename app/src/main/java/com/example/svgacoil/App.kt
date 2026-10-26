@@ -9,6 +9,7 @@ import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
 import com.opensource.svga.coil.SvgaDecoder
 import com.opensource.svga.coil.SvgaTemplateCache
+import com.opensource.svga.core.util.SvgaLogger
 
 /**
  * 全局 Application，实现 [SingletonImageLoader.Factory] 规范化初始化 Coil 3 单例加载器。
@@ -16,6 +17,12 @@ import com.opensource.svga.coil.SvgaTemplateCache
  * 共享同一套网络加载器、SVGA 解码器与内存缓存体系。
  */
 class App : Application(), SingletonImageLoader.Factory {
+
+    override fun onCreate() {
+        super.onCreate()
+        // 外部显式开启/关闭日志：Debug 环境开启 DEBUG 级日志，Release 环境保持默认静默（NONE）
+        SvgaLogger.init(isDebug = BuildConfig.DEBUG)
+    }
 
     override fun newImageLoader(context: PlatformContext): ImageLoader {
         return ImageLoader.Builder(context)

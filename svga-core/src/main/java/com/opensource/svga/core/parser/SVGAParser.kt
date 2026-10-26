@@ -1,6 +1,7 @@
 package com.opensource.svga.core.parser
 
 import com.opensource.svga.core.model.SVGAVideoEntity
+import com.opensource.svga.core.util.SvgaLogger
 import com.opensource.svgaplayer.proto.MovieEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -49,11 +50,23 @@ object SVGAParser {
             false
         }
 
-        if (isZip) {
-            parseFromZipStream(source.inputStream())
-        } else {
-            parseFromDeflateStream(source.inputStream())
+        SvgaLogger.debug { "Parsing SVGA stream (isZip=$isZip)..." }
+
+        val entity = try {
+            if (isZip) {
+                parseFromZipStream(source.inputStream())
+            } else {
+                parseFromDeflateStream(source.inputStream())
+            }
+        } catch (t: Throwable) {
+            SvgaLogger.error(throwable = t) { "Failed to parse SVGA stream: ${t.message}" }
+            throw t
         }
+
+        SvgaLogger.info {
+            "SVGA parsed successfully: ${entity.videoSize.width.toInt()}x${entity.videoSize.height.toInt()}, fps=${entity.fps}, frames=${entity.frames}, sprites=${entity.spriteList.size}, slices=${entity.currentRawImages.size}"
+        }
+        entity
     }
 
     /**
@@ -111,6 +124,9 @@ object SVGAParser {
             }
         }
 
+        if (movieBytes == null) {
+            SvgaLogger.error { "SVGA parse failed: zip archive does not contain 'movie.binary'" }
+        }
         requireNotNull(movieBytes) { "SVGA zip archive does not contain 'movie.binary'" }
 
         val movieEntity = MovieEntity.parseFrom(movieBytes)

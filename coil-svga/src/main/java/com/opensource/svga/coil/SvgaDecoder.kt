@@ -13,6 +13,7 @@ import coil3.request.Options
 import coil3.request.allowHardware
 import coil3.size.pxOrElse
 import com.opensource.svga.core.parser.SVGAParser
+import com.opensource.svga.core.util.SvgaLogger
 import kotlinx.coroutines.sync.withPermit
 import okio.use
 
@@ -22,6 +23,8 @@ class SvgaDecoder(
 ) : Decoder {
 
     override suspend fun decode(): DecodeResult {
+        val startTime = System.currentTimeMillis()
+
         // 1. 尝试提取模板享元缓存 Key（优先顺序：自定义 Key -> diskCacheKey -> 元数据 URI -> 文件路径 -> 二进制特征指纹）
         val cacheKey = options.extras[SVGA_CACHE_KEY]
             ?: options.diskCacheKey
@@ -41,6 +44,10 @@ class SvgaDecoder(
         }
         val requestedTier = SvgaResolutionTier.from(targetWidth, targetHeight, density)
 
+        SvgaLogger.debug {
+            "SvgaDecoder.decode start: key=$cacheKey, target=${targetWidth}x${targetHeight}, tier=$requestedTier, allowHardware=$allowHardware"
+        }
+
         val autoRecycleOnEnd = options.extras[SVGA_AUTO_RECYCLE_ON_END_KEY] ?: false
         // 若调用方显式开启了 autoRecycleOnEnd 但未指定 maxCacheableBytes，默认不入全局 L1 享元缓存（0L），
         // 确保单次播后即焚动效不会进入全局缓存池，同时兼容显式设置了 maxCacheableBytes 的分级熔断场景。
@@ -54,6 +61,12 @@ class SvgaDecoder(
             null
         }
         var isCached = compatibleMatch != null
+        if (compatibleMatch != null) {
+            SvgaLogger.debug {
+                "Cache HIT (${compatibleMatch.second} for $requestedTier): key=$cacheKey"
+            }
+        }
+
         val videoEntity = compatibleMatch?.first ?: parseSemaphore.withPermit {
             // 双重检查锁（DCL）：排队等待期间，可能前序协程已解析完成并存入缓存
             val doubleCheck = if (maxCacheableBytes > 0L) {
@@ -63,8 +76,12 @@ class SvgaDecoder(
             }
             if (doubleCheck != null) {
                 isCached = true
+                SvgaLogger.debug {
+                    "Cache HIT on DCL (${doubleCheck.second} for $requestedTier): key=$cacheKey"
+                }
                 doubleCheck.first
             } else {
+                SvgaLogger.debug { "Cache MISS: parsing and decoding slices for key=$cacheKey (tier=$requestedTier)..." }
                 val parsed = source.source().use { bufferedSource ->
                     SVGAParser.parse(bufferedSource)
                 }
@@ -79,6 +96,10 @@ class SvgaDecoder(
                 isCached = putSuccess
                 parsed
             }
+        }
+
+        SvgaLogger.info {
+            "SVGA decode finished in ${System.currentTimeMillis() - startTime}ms: key=$cacheKey, tier=$requestedTier, cached=$isCached, allocated=${videoEntity.getAllocatedByteCount() / 1024}KB"
         }
 
         // 4. 提取动态实体配置与重复次数

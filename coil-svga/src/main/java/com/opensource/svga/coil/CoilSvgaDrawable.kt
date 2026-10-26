@@ -6,6 +6,7 @@ import coil3.DrawableImage
 import com.opensource.svga.core.drawable.SvgaAnimatableDrawable
 import com.opensource.svga.core.dynamic.SVGADynamicEntity
 import com.opensource.svga.core.model.SVGAVideoEntity
+import com.opensource.svga.core.util.SvgaLogger
 
 /**
  * 接入 Coil 内存体系的自驱动 Drawable。
@@ -35,6 +36,9 @@ class CoilSvgaDrawable(
                 // 仅当未进入全局 L1 享元缓存池 (isEphemeral == true) 时才允许在动画结束时清空底层位图，
                 // 严防将全局共享模板池中的 SVGAVideoEntity 掏空成无图空壳。
                 if (autoRecycleOnEnd && isEphemeral) {
+                    SvgaLogger.info {
+                        "autoRecycleOnEnd: cleared bitmaps for ephemeral videoItem (${videoItem.videoSize.width.toInt()}x${videoItem.videoSize.height.toInt()})"
+                    }
                     videoItem.clearBitmaps()
                 }
             }

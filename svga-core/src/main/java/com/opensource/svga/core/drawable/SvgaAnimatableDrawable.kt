@@ -12,6 +12,7 @@ import android.widget.ImageView
 import com.opensource.svga.core.drawer.SVGACanvasDrawer
 import com.opensource.svga.core.dynamic.SVGADynamicEntity
 import com.opensource.svga.core.model.SVGAVideoEntity
+import com.opensource.svga.core.util.SvgaLogger
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
@@ -78,6 +79,7 @@ open class SvgaAnimatableDrawable(
         val now = android.os.SystemClock.uptimeMillis()
         if (lastDrawTime > 0L && (now - lastDrawTime) > INACTIVE_TIMEOUT_MS) {
             isSleeping = true
+            SvgaLogger.debug { "SvgaAnimatableDrawable entering sleep (inactive > ${INACTIVE_TIMEOUT_MS}ms)" }
             return
         }
 
@@ -91,6 +93,7 @@ open class SvgaAnimatableDrawable(
             // 补偿余数消除 60Hz VSYNC 下的非整除帧率（如 24fps）漂移；
             // 若发生超长停顿（> MAX_FRAME_SKIP 帧），重置时钟基准并限制单次最多跳帧数，防止画面瞬移
             val stepCount = if (rawStepCount > MAX_FRAME_SKIP) {
+                SvgaLogger.warn { "Frame drop detected: elapsed ${elapsed / 1_000_000}ms, skipped $rawStepCount frames (clamped to $MAX_FRAME_SKIP)" }
                 lastFrameTimeNanos = frameTimeNanos
                 MAX_FRAME_SKIP
             } else {
@@ -134,6 +137,7 @@ open class SvgaAnimatableDrawable(
             // 重新在屏幕上可见并绘制，自动唤醒帧回调
             isSleeping = false
             lastFrameTimeNanos = 0L
+            SvgaLogger.debug { "SvgaAnimatableDrawable woke up from sleep" }
             Choreographer.getInstance().postFrameCallback(weakFrameCallback)
         }
         drawer.drawFrame(canvas, currentFrame, scaleType, bounds)
@@ -151,6 +155,7 @@ open class SvgaAnimatableDrawable(
         lastDrawTime = android.os.SystemClock.uptimeMillis()
         currentIteration = 0
         lastFrameTimeNanos = 0L
+        SvgaLogger.debug { "SvgaAnimatableDrawable.start: frames=${videoItem.frames}, fps=${videoItem.fps}, repeatCount=$repeatCount" }
         notifyAnimationStart()
         Choreographer.getInstance().removeFrameCallback(weakFrameCallback)
         Choreographer.getInstance().postFrameCallback(weakFrameCallback)
@@ -163,6 +168,7 @@ open class SvgaAnimatableDrawable(
             return
         }
 
+        SvgaLogger.debug { "SvgaAnimatableDrawable.stop at frame $currentFrame" }
         isRunning = false
         isSleeping = false
         Choreographer.getInstance().removeFrameCallback(weakFrameCallback)

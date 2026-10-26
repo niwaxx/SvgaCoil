@@ -267,6 +267,30 @@ lifecycleScope.launch {
 
 ---
 
+### 5. 日志系统与 Release 静默策略（`SvgaLogger`）
+
+SDK 内置轻量、高性能的日志门面 [`SvgaLogger`](./svga-core/src/main/java/com/opensource/svga/core/util/SvgaLogger.kt)，覆盖二进制流解析、切片降采样计算、OOM 降级、享元二级缓存命中以及动画掉帧/休眠监控：
+
+- **🛡️ 默认彻底静默（零反射、零合规风险）**：
+  - **默认级别**：`SvgaLogLevel.NONE`。未经显式开启时，无论是 Debug 还是 Release 均**完全不输出任何日志**，彻底杜绝隐藏 API 反射与审计风险。
+  - **零开销保障**：结合 Kotlin 内联高阶函数，在未开启状态下**绝不执行任何 Lambda 字符串拼接与对象分配**，CPU 与内存开销严格为 0。
+- **⚙️ 外部显式开启与配置**：
+
+```kotlin
+// 推荐做法：在 Application.onCreate() 中绑定主工程的 BuildConfig.DEBUG
+SvgaLogger.init(isDebug = BuildConfig.DEBUG)
+
+// 或显式指定精确级别（支持 VERBOSE, DEBUG, INFO, WARN, ERROR, NONE）
+SvgaLogger.minLevel = SvgaLogLevel.INFO
+
+// 接入统一日志框架（如 Timber / XLog / APM）
+SvgaLogger.delegate = SvgaLogDelegate { priority, tag, message, throwable ->
+    Timber.tag(tag).log(priority, throwable, message)
+}
+```
+
+---
+
 ## 📱 示例工程与验证命令
 
 本仓库 `:app` 模块内置完整的交互式调试与极限压测功能：
